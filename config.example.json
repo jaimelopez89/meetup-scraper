@@ -1,0 +1,13 @@
+{
+  "browserless_api_key": "YOUR_BROWSERLESS_API_KEY_HERE",
+  "groups": [
+    {
+      "url": "https://www.meetup.com/example-group/",
+      "sales_rep": "John Smith"
+    },
+    {
+      "url": "https://www.meetup.com/another-group/",
+      "sales_rep": "Jane Doe"
+    }
+  ]
+}

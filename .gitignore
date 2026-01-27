@@ -1,0 +1,20 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+
+# Output files
+events.csv
+
+# Config with API keys - use config.example.json as template
+config.json
+
+# IDE
+.idea/
+.vscode/
+*.swp
+
+# Claude
+.claude/
