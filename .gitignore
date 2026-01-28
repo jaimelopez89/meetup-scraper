@@ -24,3 +24,4 @@ calendars/
 
 # Claude
 .claude/
+.DS_Store
