@@ -18,6 +18,7 @@ FIELDNAMES = [
     "group_url",
     "sales_rep",
     "status",
+    "calendar_exported",
 ]
 
 
@@ -141,3 +142,20 @@ def save_events(events: dict[str, dict], filepath: str = "events.csv") -> None:
         writer.writerows(event_list)
 
     print(f"Saved {len(event_list)} events to {filepath}")
+
+
+def mark_calendar_exported(events: dict[str, dict], exported_urls: list[str]) -> dict[str, dict]:
+    """
+    Mark events as exported to calendar.
+
+    Args:
+        events: Dictionary of events keyed by event_url
+        exported_urls: List of event URLs that were exported
+
+    Returns:
+        Updated events dictionary
+    """
+    for url in exported_urls:
+        if url in events:
+            events[url]["calendar_exported"] = "True"
+    return events
