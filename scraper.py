@@ -5,8 +5,13 @@ Meetup Event Scraper
 Scrapes upcoming events from specified Meetup.com groups and exports them to CSV,
 with sales rep assignment via config lookup. Supports state persistence, Google Sheets
 integration, Slack notifications, and calendar file generation.
+
+Usage:
+    python scraper.py                  # Scrape events only
+    python scraper.py --export-calendar  # Scrape and export calendar
 """
 
+import argparse
 import json
 import re
 import sys
@@ -21,10 +26,11 @@ from modules.csv_manager import (
     update_event_statuses,
     merge_events,
     save_events,
+    mark_calendar_exported,
 )
 from modules.google_sheets import push_to_sheets
 from modules.slack_notifier import send_notification as send_slack_notification
-from modules.calendar_generator import generate_all_ics
+from modules.calendar_generator import generate_all_ics, generate_combined_ics
 
 
 def load_config(config_path: str = "config.json") -> dict:
@@ -68,13 +74,25 @@ def normalize_url(url: str) -> str:
     return url
 
 
+def get_group_display_name(url: str) -> str:
+    """Extract a human-readable group name from URL."""
+    match = re.search(r"meetup\.com/([^/?#]+)", url)
+    if match:
+        slug = match.group(1)
+        # Convert slug to readable name: "apache-kafka-nyc" -> "Apache Kafka NYC"
+        name = slug.replace("-", " ").title()
+        # Fix common acronyms
+        for acronym in ["Nyc", "Aws", "Api", "Ai", "Usa", "Uk", "Dfw", "Na"]:
+            name = name.replace(acronym, acronym.upper())
+        return name
+    return url
+
+
 def fetch_page(url: str, api_key: str) -> str:
     """Use Browserless API to render a Meetup page and return the HTML."""
     # Normalize and get events page URL
     base_url = normalize_url(url)
     events_url = urljoin(base_url, "events/")
-
-    print(f"  Fetching: {events_url}")
 
     response = requests.post(
         "https://chrome.browserless.io/content",
@@ -265,8 +283,24 @@ def deduplicate_events(events: list[dict]) -> list[dict]:
     return unique
 
 
+def parse_args():
+    """Parse command line arguments."""
+    parser = argparse.ArgumentParser(
+        description="Scrape Meetup events and export to CSV",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    parser.add_argument(
+        "--export-calendar",
+        action="store_true",
+        help="Export new events to calendar file after scraping",
+    )
+    return parser.parse_args()
+
+
 def main() -> None:
     """Orchestrate the scraping process."""
+    args = parse_args()
+
     print("=" * 60)
     print("Meetup Event Scraper")
     print("=" * 60)
@@ -285,12 +319,13 @@ def main() -> None:
     print("\nLoading existing events...")
     existing_events = load_existing_events("events.csv")
     existing_count = len(existing_events)
-    print(f"Loaded {existing_count} existing events")
+    print(f"  {existing_count} events in database")
 
     # Update statuses based on current date
     existing_events = update_event_statuses(existing_events)
     done_count = sum(1 for e in existing_events.values() if e.get("status") == "DONE")
-    print(f"Status update: {done_count} past events marked as DONE")
+    upcoming_count = existing_count - done_count
+    print(f"  {upcoming_count} upcoming, {done_count} past")
 
     # Deduplicate groups by normalized URL
     seen_urls = set()
@@ -305,40 +340,46 @@ def main() -> None:
         print(f"\nNote: Removed {len(groups) - len(unique_groups)} duplicate group(s)")
 
     groups = unique_groups
-    print(f"\nProcessing {len(groups)} unique group(s)\n")
+    print(f"\nScraping {len(groups)} groups...\n")
 
     all_scraped_events = []
 
     for i, group in enumerate(groups, 1):
         url = group["url"]
         sales_rep = group.get("sales_rep", "")
+        group_name = get_group_display_name(url)
 
-        print(f"[{i}/{len(groups)}] Processing: {url}")
-        print(f"  Sales Rep: {sales_rep}")
+        print(f"[{i}/{len(groups)}] {group_name}")
+        print(f"        Rep: {sales_rep}")
 
         try:
             html = fetch_page(url, api_key)
             events = parse_events(html, url, sales_rep)
             upcoming = filter_upcoming(events)
 
-            print(f"  Found {len(events)} events, {len(upcoming)} upcoming")
+            if upcoming:
+                print(f"        Found {len(upcoming)} upcoming event(s)")
+            else:
+                print(f"        No upcoming events")
             all_scraped_events.extend(upcoming)
 
         except Exception as e:
-            print(f"  Error: {e}")
+            print(f"        Error: {e}")
             continue
 
     # Deduplicate scraped events
     all_scraped_events = deduplicate_events(all_scraped_events)
 
     print(f"\n{'=' * 60}")
-    print(f"Scraped {len(all_scraped_events)} unique upcoming events")
+    print("Results")
+    print("=" * 60)
+    print(f"  Scraped: {len(all_scraped_events)} upcoming events")
 
     # Merge with existing events (identify new ones)
     all_events, new_events = merge_events(existing_events, all_scraped_events)
 
-    print(f"New events discovered: {len(new_events)}")
-    print(f"Total events in database: {len(all_events)}")
+    print(f"  New: {len(new_events)} events")
+    print(f"  Total: {len(all_events)} events in database")
 
     # Save locally
     save_events(all_events, "events.csv")
@@ -355,12 +396,26 @@ def main() -> None:
         print("\nSending Slack notification...")
         send_slack_notification(slack_config.get("webhook_url", ""), new_events)
 
-    # Generate calendars (new events only)
+    # Generate individual calendar files (new events only)
     calendar_config = config.get("calendar", {})
     rep_emails = config.get("rep_emails", {})
     if calendar_config.get("enabled") and new_events:
-        print("\nGenerating calendar files...")
+        print("\nGenerating individual calendar files...")
         generate_all_ics(new_events, rep_emails, calendar_config)
+
+    # Export combined calendar if requested
+    if args.export_calendar:
+        print("\n" + "=" * 60)
+        print("Calendar Export")
+        print("=" * 60)
+        filepath, exported_urls = generate_combined_ics(
+            all_events,
+            "calendars/all_events.ics"
+        )
+        if filepath and exported_urls:
+            all_events = mark_calendar_exported(all_events, exported_urls)
+            save_events(all_events, "events.csv")
+            print(f"\nImport into Google Calendar: {filepath}")
 
     print("\nDone!")
 
