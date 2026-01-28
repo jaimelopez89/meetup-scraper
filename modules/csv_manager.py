@@ -12,6 +12,7 @@ FIELDNAMES = [
     "event_url",
     "description",
     "venue_name",
+    "city",
     "address",
     "is_online",
     "group_name",

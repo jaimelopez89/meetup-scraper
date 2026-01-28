@@ -90,6 +90,43 @@ def get_group_display_name(url: str) -> str:
     return url
 
 
+def assign_rep_by_territory(events: list[dict], territories: dict[str, str]) -> list[dict]:
+    """
+    Reassign sales reps based on event location using territory mapping.
+
+    Args:
+        events: List of event dictionaries
+        territories: Mapping of city names to sales rep names
+
+    Returns:
+        Updated list of events with territory-based rep assignments
+    """
+    if not territories:
+        return events
+
+    # Build a lowercase lookup for case-insensitive matching
+    territory_lookup = {city.lower(): rep for city, rep in territories.items()}
+
+    for event in events:
+        if event.get("is_online"):
+            # Keep original rep for online events
+            continue
+
+        city = event.get("city", "").strip()
+        if not city:
+            continue
+
+        # Try exact match (case-insensitive)
+        city_lower = city.lower()
+        if city_lower in territory_lookup:
+            original_rep = event.get("sales_rep", "")
+            new_rep = territory_lookup[city_lower]
+            if original_rep != new_rep:
+                event["sales_rep"] = new_rep
+
+    return events
+
+
 def fetch_page(url: str, api_key: str) -> str:
     """Use Browserless API to render a Meetup page and return the HTML."""
     # Normalize and get events page URL
@@ -187,6 +224,7 @@ def extract_event_data(event_data: dict, venues: dict, group_name: str, group_ur
         "description": "",
         "venue_name": "",
         "address": "",
+        "city": "",
         "is_online": False,
         "group_name": group_name,
         "group_url": group_url,
@@ -234,6 +272,7 @@ def extract_event_data(event_data: dict, venues: dict, group_name: str, group_ur
             if venue_key in venues:
                 venue_data = venues[venue_key]
                 event["venue_name"] = venue_data.get("name", "")
+                event["city"] = venue_data.get("city", "")
 
                 # Build address
                 addr_parts = []
@@ -371,6 +410,11 @@ def main() -> None:
 
     # Deduplicate scraped events
     all_scraped_events = deduplicate_events(all_scraped_events)
+
+    # Assign reps based on territory (event location takes precedence over group)
+    territories = config.get("territories", {})
+    if territories:
+        all_scraped_events = assign_rep_by_territory(all_scraped_events, territories)
 
     print(f"\n{'=' * 60}")
     print("Results")
