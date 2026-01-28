@@ -3,10 +3,10 @@
 Meetup Event Scraper
 
 Scrapes upcoming events from specified Meetup.com groups and exports them to CSV,
-with sales rep assignment via config lookup.
+with sales rep assignment via config lookup. Supports state persistence, Google Sheets
+integration, Slack notifications, and calendar file generation.
 """
 
-import csv
 import json
 import re
 import sys
@@ -15,6 +15,16 @@ from pathlib import Path
 from urllib.parse import urljoin
 
 import requests
+
+from modules.csv_manager import (
+    load_existing_events,
+    update_event_statuses,
+    merge_events,
+    save_events,
+)
+from modules.google_sheets import push_to_sheets
+from modules.slack_notifier import send_notification as send_slack_notification
+from modules.calendar_generator import generate_all_ics
 
 
 def load_config(config_path: str = "config.json") -> dict:
@@ -255,34 +265,6 @@ def deduplicate_events(events: list[dict]) -> list[dict]:
     return unique
 
 
-def export_csv(events: list[dict], filename: str = "events.csv") -> None:
-    """Write events to CSV file."""
-    if not events:
-        print("No events to export.")
-        return
-
-    fieldnames = [
-        "title",
-        "date",
-        "time",
-        "event_url",
-        "description",
-        "venue_name",
-        "address",
-        "is_online",
-        "group_name",
-        "group_url",
-        "sales_rep",
-    ]
-
-    with open(filename, "w", newline="", encoding="utf-8") as f:
-        writer = csv.DictWriter(f, fieldnames=fieldnames)
-        writer.writeheader()
-        writer.writerows(events)
-
-    print(f"\nExported {len(events)} events to {filename}")
-
-
 def main() -> None:
     """Orchestrate the scraping process."""
     print("=" * 60)
@@ -299,6 +281,17 @@ def main() -> None:
     api_key = config["browserless_api_key"]
     groups = config["groups"]
 
+    # Load and update existing events
+    print("\nLoading existing events...")
+    existing_events = load_existing_events("events.csv")
+    existing_count = len(existing_events)
+    print(f"Loaded {existing_count} existing events")
+
+    # Update statuses based on current date
+    existing_events = update_event_statuses(existing_events)
+    done_count = sum(1 for e in existing_events.values() if e.get("status") == "DONE")
+    print(f"Status update: {done_count} past events marked as DONE")
+
     # Deduplicate groups by normalized URL
     seen_urls = set()
     unique_groups = []
@@ -314,7 +307,7 @@ def main() -> None:
     groups = unique_groups
     print(f"\nProcessing {len(groups)} unique group(s)\n")
 
-    all_events = []
+    all_scraped_events = []
 
     for i, group in enumerate(groups, 1):
         url = group["url"]
@@ -329,25 +322,47 @@ def main() -> None:
             upcoming = filter_upcoming(events)
 
             print(f"  Found {len(events)} events, {len(upcoming)} upcoming")
-            all_events.extend(upcoming)
+            all_scraped_events.extend(upcoming)
 
         except Exception as e:
             print(f"  Error: {e}")
             continue
 
-    # Deduplicate events (in case same event appears in multiple groups)
-    all_events = deduplicate_events(all_events)
+    # Deduplicate scraped events
+    all_scraped_events = deduplicate_events(all_scraped_events)
 
     print(f"\n{'=' * 60}")
-    print(f"Total unique upcoming events: {len(all_events)}")
+    print(f"Scraped {len(all_scraped_events)} unique upcoming events")
 
-    # Sort by date
-    all_events.sort(key=lambda x: x.get("date", "9999-99-99"))
+    # Merge with existing events (identify new ones)
+    all_events, new_events = merge_events(existing_events, all_scraped_events)
 
-    # Export to CSV
-    export_csv(all_events)
+    print(f"New events discovered: {len(new_events)}")
+    print(f"Total events in database: {len(all_events)}")
 
-    print("Done!")
+    # Save locally
+    save_events(all_events, "events.csv")
+
+    # Push to Google Sheets
+    google_config = config.get("google_sheets", {})
+    if google_config.get("enabled"):
+        print("\nPushing to Google Sheets...")
+        push_to_sheets(all_events, google_config)
+
+    # Notify on Slack (new events only)
+    slack_config = config.get("slack", {})
+    if slack_config.get("enabled") and new_events:
+        print("\nSending Slack notification...")
+        send_slack_notification(slack_config.get("webhook_url", ""), new_events)
+
+    # Generate calendars (new events only)
+    calendar_config = config.get("calendar", {})
+    rep_emails = config.get("rep_emails", {})
+    if calendar_config.get("enabled") and new_events:
+        print("\nGenerating calendar files...")
+        generate_all_ics(new_events, rep_emails, calendar_config)
+
+    print("\nDone!")
 
 
 if __name__ == "__main__":

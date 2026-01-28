@@ -1,5 +1,6 @@
 {
   "browserless_api_key": "YOUR_BROWSERLESS_API_KEY_HERE",
+
   "groups": [
     {
       "url": "https://www.meetup.com/example-group/",
@@ -9,5 +10,28 @@
       "url": "https://www.meetup.com/another-group/",
       "sales_rep": "Jane Doe"
     }
-  ]
+  ],
+
+  "rep_emails": {
+    "John Smith": "john.smith@company.com",
+    "Jane Doe": "jane.doe@company.com"
+  },
+
+  "google_sheets": {
+    "enabled": false,
+    "spreadsheet_id": "YOUR_SPREADSHEET_ID_HERE",
+    "credentials_path": "google_credentials.json",
+    "worksheet_name": "Events"
+  },
+
+  "slack": {
+    "enabled": false,
+    "webhook_url": "https://hooks.slack.com/services/YOUR/WEBHOOK/URL"
+  },
+
+  "calendar": {
+    "enabled": false,
+    "output_dir": "calendars",
+    "default_duration_hours": 2
+  }
 }

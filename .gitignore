@@ -11,6 +11,12 @@ events.csv
 # Config with API keys - use config.example.json as template
 config.json
 
+# Google credentials
+google_credentials.json
+
+# Generated calendars
+calendars/
+
 # IDE
 .idea/
 .vscode/
