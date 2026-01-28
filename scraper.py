@@ -439,9 +439,10 @@ def main() -> None:
     # Sync to Google Calendar (sends invites to sales reps)
     gcal_config = config.get("google_calendar", {})
     rep_emails = config.get("rep_emails", {})
+    timezones = config.get("timezones", {})
     if gcal_config.get("enabled"):
         print("\nSyncing to Google Calendar...")
-        synced_urls = sync_to_google_calendar(all_events, rep_emails, gcal_config)
+        synced_urls = sync_to_google_calendar(all_events, rep_emails, gcal_config, timezones)
         if synced_urls:
             all_events = mark_gcal_synced(all_events, synced_urls)
             save_events(all_events, "events.csv")

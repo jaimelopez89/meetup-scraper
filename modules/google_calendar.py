@@ -80,7 +80,8 @@ def create_calendar_event(
     calendar_id: str,
     rep_email: Optional[str],
     default_duration_hours: int = 2,
-    send_invites: bool = True
+    send_invites: bool = True,
+    timezone: str = "UTC"
 ) -> Optional[str]:
     """
     Create a single event in Google Calendar.
@@ -92,6 +93,7 @@ def create_calendar_event(
         rep_email: Email address for the sales rep (will be added as attendee)
         default_duration_hours: Default event duration
         send_invites: Whether to send email invites to attendees
+        timezone: Timezone for the event (e.g., "America/New_York")
 
     Returns:
         Created event ID, or None if creation failed
@@ -147,11 +149,11 @@ def create_calendar_event(
         "description": full_description,
         "start": {
             "dateTime": dt_start.isoformat(),
-            "timeZone": "UTC",
+            "timeZone": timezone,
         },
         "end": {
             "dateTime": dt_end.isoformat(),
-            "timeZone": "UTC",
+            "timeZone": timezone,
         },
         "source": {
             "title": group_name,
@@ -179,10 +181,34 @@ def create_calendar_event(
         return None
 
 
+def get_timezone_for_city(city: str, timezones: dict[str, str]) -> str:
+    """
+    Look up timezone for a city.
+
+    Args:
+        city: City name
+        timezones: Mapping of city names to timezone strings
+
+    Returns:
+        Timezone string (e.g., "America/New_York") or "UTC" if not found
+    """
+    if not city or not timezones:
+        return "UTC"
+
+    # Case-insensitive lookup
+    city_lower = city.lower()
+    for tz_city, tz in timezones.items():
+        if tz_city.lower() == city_lower:
+            return tz
+
+    return "UTC"
+
+
 def sync_to_google_calendar(
     events: dict[str, dict],
     rep_emails: dict[str, str],
-    config: dict
+    config: dict,
+    timezones: dict[str, str] = None
 ) -> list[str]:
     """
     Sync events to Google Calendar.
@@ -198,6 +224,7 @@ def sync_to_google_calendar(
             - credentials_path: Path to OAuth client secrets JSON
             - default_duration_hours: Event duration (default: 2)
             - send_invites: Whether to send email invites (default: True)
+        timezones: Mapping of city names to timezone strings
 
     Returns:
         List of event URLs that were synced
@@ -213,6 +240,7 @@ def sync_to_google_calendar(
     credentials_path = config.get("credentials_path", "google_credentials.json")
     default_duration = config.get("default_duration_hours", 2)
     send_invites = config.get("send_invites", True)
+    timezones = timezones or {}
 
     # Filter to UPCOMING events not yet synced
     to_sync = [
@@ -237,6 +265,8 @@ def sync_to_google_calendar(
     for url, event in to_sync:
         sales_rep = event.get("sales_rep", "")
         rep_email = rep_emails.get(sales_rep)
+        city = event.get("city", "")
+        timezone = get_timezone_for_city(city, timezones)
 
         title = event.get("title", "Unknown")[:50]
 
@@ -250,7 +280,8 @@ def sync_to_google_calendar(
             calendar_id,
             rep_email,
             default_duration_hours=default_duration,
-            send_invites=send_invites
+            send_invites=send_invites,
+            timezone=timezone
         )
 
         if event_id:

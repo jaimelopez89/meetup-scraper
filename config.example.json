@@ -192,6 +192,60 @@
     "Monterrey": "Marcos Teixeira"
   },
 
+  "timezones": {
+    "_comment": "Maps city names to IANA timezone strings for Google Calendar events.",
+
+    "New York": "America/New_York",
+    "NYC": "America/New_York",
+    "Boston": "America/New_York",
+    "Philadelphia": "America/New_York",
+    "Washington": "America/New_York",
+    "DC": "America/New_York",
+    "Atlanta": "America/New_York",
+
+    "Chicago": "America/Chicago",
+    "Dallas": "America/Chicago",
+    "Houston": "America/Chicago",
+    "Austin": "America/Chicago",
+
+    "Denver": "America/Denver",
+
+    "San Francisco": "America/Los_Angeles",
+    "Los Angeles": "America/Los_Angeles",
+    "Seattle": "America/Los_Angeles",
+
+    "London": "Europe/London",
+    "Dublin": "Europe/Dublin",
+
+    "Berlin": "Europe/Berlin",
+    "Munich": "Europe/Berlin",
+    "Frankfurt": "Europe/Berlin",
+    "Vienna": "Europe/Vienna",
+    "Zurich": "Europe/Zurich",
+
+    "Paris": "Europe/Paris",
+    "Barcelona": "Europe/Madrid",
+    "Madrid": "Europe/Madrid",
+    "Milan": "Europe/Rome",
+    "Rome": "Europe/Rome",
+    "Lisbon": "Europe/Lisbon",
+
+    "Amsterdam": "Europe/Amsterdam",
+    "Brussels": "Europe/Brussels",
+    "Stockholm": "Europe/Stockholm",
+    "Copenhagen": "Europe/Copenhagen",
+    "Oslo": "Europe/Oslo",
+    "Helsinki": "Europe/Helsinki",
+
+    "São Paulo": "America/Sao_Paulo",
+    "Rio de Janeiro": "America/Sao_Paulo",
+    "Buenos Aires": "America/Argentina/Buenos_Aires",
+    "Santiago": "America/Santiago",
+    "Lima": "America/Lima",
+    "Bogotá": "America/Bogota",
+    "Mexico City": "America/Mexico_City"
+  },
+
   "google_sheets": {
     "enabled": false,
     "spreadsheet_id": "YOUR_SPREADSHEET_ID_HERE",
