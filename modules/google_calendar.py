@@ -1,11 +1,14 @@
 """Google Calendar integration for creating events with attendee invites."""
 
+import os
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Optional
 
 try:
-    from google.oauth2.service_account import Credentials
+    from google.oauth2.credentials import Credentials
+    from google_auth_oauthlib.flow import InstalledAppFlow
+    from google.auth.transport.requests import Request
     from googleapiclient.discovery import build
     from googleapiclient.errors import HttpError
     GCAL_AVAILABLE = True
@@ -14,38 +17,60 @@ except ImportError:
 
 
 SCOPES = ["https://www.googleapis.com/auth/calendar"]
+TOKEN_FILE = "google_token.json"
 
 
-def authenticate(credentials_path: str):
+def authenticate(credentials_path: str = "google_credentials.json"):
     """
-    Authenticate with Google Calendar API using a service account.
+    Authenticate with Google Calendar API using OAuth 2.0.
+
+    First run will open a browser for authentication. Subsequent runs
+    will use the saved token.
 
     Args:
-        credentials_path: Path to the Google service account JSON file
+        credentials_path: Path to the OAuth client secrets JSON file
 
     Returns:
         Google Calendar API service object
 
     Raises:
-        ImportError: If google-api-python-client is not installed
+        ImportError: If required packages are not installed
         FileNotFoundError: If credentials file doesn't exist
     """
     if not GCAL_AVAILABLE:
         raise ImportError(
-            "google-api-python-client and google-auth are required for Google Calendar. "
-            "Install with: pip install google-api-python-client google-auth"
+            "Required packages not installed. Run:\n"
+            "pip install google-api-python-client google-auth-oauthlib"
         )
 
-    path = Path(credentials_path)
-    if not path.exists():
-        raise FileNotFoundError(f"Google credentials file not found: {credentials_path}")
+    creds = None
 
-    credentials = Credentials.from_service_account_file(
-        str(path),
-        scopes=SCOPES
-    )
+    # Load existing token if available
+    if os.path.exists(TOKEN_FILE):
+        creds = Credentials.from_authorized_user_file(TOKEN_FILE, SCOPES)
 
-    service = build("calendar", "v3", credentials=credentials)
+    # If no valid credentials, authenticate
+    if not creds or not creds.valid:
+        if creds and creds.expired and creds.refresh_token:
+            # Refresh expired token
+            creds.refresh(Request())
+        else:
+            # Need new authentication
+            if not os.path.exists(credentials_path):
+                raise FileNotFoundError(
+                    f"OAuth credentials file not found: {credentials_path}\n"
+                    "Download it from Google Cloud Console → APIs & Services → Credentials"
+                )
+
+            flow = InstalledAppFlow.from_client_secrets_file(credentials_path, SCOPES)
+            creds = flow.run_local_server(port=0)
+
+        # Save token for future runs
+        with open(TOKEN_FILE, "w") as token:
+            token.write(creds.to_json())
+        print(f"Saved authentication token to {TOKEN_FILE}")
+
+    service = build("calendar", "v3", credentials=creds)
     return service
 
 
@@ -170,7 +195,7 @@ def sync_to_google_calendar(
         rep_emails: Mapping of sales rep names to email addresses
         config: Google Calendar configuration containing:
             - calendar_id: Target calendar ID (default: "primary")
-            - credentials_path: Path to service account JSON
+            - credentials_path: Path to OAuth client secrets JSON
             - default_duration_hours: Event duration (default: 2)
             - send_invites: Whether to send email invites (default: True)
 
@@ -179,8 +204,8 @@ def sync_to_google_calendar(
     """
     if not GCAL_AVAILABLE:
         print(
-            "Warning: google-api-python-client not installed. "
-            "Install with: pip install google-api-python-client google-auth"
+            "Warning: Required packages not installed. Run:\n"
+            "pip install google-api-python-client google-auth-oauthlib"
         )
         return []
 

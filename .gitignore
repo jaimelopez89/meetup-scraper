@@ -11,8 +11,9 @@ events.csv
 # Config with API keys - use config.example.json as template
 config.json
 
-# Google credentials
+# Google credentials and tokens
 google_credentials.json
+google_token.json
 
 # Generated calendars
 calendars/
@@ -25,3 +26,4 @@ calendars/
 # Claude
 .claude/
 .DS_Store
+starry-tracker-478800-e9-67af3eee66d4.json
