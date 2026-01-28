@@ -33,5 +33,13 @@
     "enabled": false,
     "output_dir": "calendars",
     "default_duration_hours": 2
+  },
+
+  "google_calendar": {
+    "enabled": false,
+    "calendar_id": "primary",
+    "credentials_path": "google_credentials.json",
+    "default_duration_hours": 2,
+    "send_invites": true
   }
 }

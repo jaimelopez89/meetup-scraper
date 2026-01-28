@@ -27,10 +27,12 @@ from modules.csv_manager import (
     merge_events,
     save_events,
     mark_calendar_exported,
+    mark_gcal_synced,
 )
 from modules.google_sheets import push_to_sheets
 from modules.slack_notifier import send_notification as send_slack_notification
 from modules.calendar_generator import generate_all_ics, generate_combined_ics
+from modules.google_calendar import sync_to_google_calendar
 
 
 def load_config(config_path: str = "config.json") -> dict:
@@ -390,6 +392,16 @@ def main() -> None:
         print("\nPushing to Google Sheets...")
         push_to_sheets(all_events, google_config)
 
+    # Sync to Google Calendar (sends invites to sales reps)
+    gcal_config = config.get("google_calendar", {})
+    rep_emails = config.get("rep_emails", {})
+    if gcal_config.get("enabled"):
+        print("\nSyncing to Google Calendar...")
+        synced_urls = sync_to_google_calendar(all_events, rep_emails, gcal_config)
+        if synced_urls:
+            all_events = mark_gcal_synced(all_events, synced_urls)
+            save_events(all_events, "events.csv")
+
     # Notify on Slack (new events only)
     slack_config = config.get("slack", {})
     if slack_config.get("enabled") and new_events:
@@ -398,7 +410,6 @@ def main() -> None:
 
     # Generate individual calendar files (new events only)
     calendar_config = config.get("calendar", {})
-    rep_emails = config.get("rep_emails", {})
     if calendar_config.get("enabled") and new_events:
         print("\nGenerating individual calendar files...")
         generate_all_ics(new_events, rep_emails, calendar_config)

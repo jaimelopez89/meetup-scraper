@@ -13,6 +13,7 @@ Scrapes upcoming events from Meetup.com groups and exports them to CSV with sale
 - **Google Sheets**: Push events to a shared spreadsheet
 - **Slack notifications**: Get alerts when new events are discovered
 - **Calendar files**: Generate .ics files for new events
+- **Google Calendar**: Sync events and send invites to sales reps
 
 ## Requirements
 
@@ -125,6 +126,32 @@ Generate .ics files for new events that can be imported into any calendar app.
 
 Calendar files are saved to the `calendars/` directory.
 
+### Google Calendar (with Invites)
+
+Sync events directly to Google Calendar and send invites to sales reps.
+
+1. Create a Google Cloud service account (same as for Sheets)
+2. Enable the Google Calendar API in your Google Cloud project
+3. Share your calendar with the service account email (or use "primary" for your main calendar)
+4. Configure in `config.json`:
+   ```json
+   {
+     "rep_emails": {
+       "John Smith": "john@company.com",
+       "Jane Doe": "jane@company.com"
+     },
+     "google_calendar": {
+       "enabled": true,
+       "calendar_id": "primary",
+       "credentials_path": "google_credentials.json",
+       "default_duration_hours": 2,
+       "send_invites": true
+     }
+   }
+   ```
+
+Each sales rep will receive an email invite for events assigned to them.
+
 ## How It Works
 
 The scraper uses Browserless to render Meetup pages (which require JavaScript), then extracts event data from Meetup's embedded `__NEXT_DATA__` JSON rather than parsing HTML. This makes it more reliable and faster than traditional HTML scraping.
@@ -150,6 +177,7 @@ meetup-scraper/
     ├── __init__.py
     ├── csv_manager.py      # State persistence, status tracking
     ├── google_sheets.py    # Google Sheets integration
+    ├── google_calendar.py  # Google Calendar with invites
     ├── slack_notifier.py   # Slack notifications
     └── calendar_generator.py # ICS file generation
 ```

@@ -1,4 +1,5 @@
 requests>=2.31.0
 gspread>=5.12.0
 google-auth>=2.25.0
+google-api-python-client>=2.100.0
 icalendar>=5.0.0

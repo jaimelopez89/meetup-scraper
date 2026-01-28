@@ -19,6 +19,7 @@ FIELDNAMES = [
     "sales_rep",
     "status",
     "calendar_exported",
+    "gcal_synced",
 ]
 
 
@@ -158,4 +159,21 @@ def mark_calendar_exported(events: dict[str, dict], exported_urls: list[str]) ->
     for url in exported_urls:
         if url in events:
             events[url]["calendar_exported"] = "True"
+    return events
+
+
+def mark_gcal_synced(events: dict[str, dict], synced_urls: list[str]) -> dict[str, dict]:
+    """
+    Mark events as synced to Google Calendar.
+
+    Args:
+        events: Dictionary of events keyed by event_url
+        synced_urls: List of event URLs that were synced
+
+    Returns:
+        Updated events dictionary
+    """
+    for url in synced_urls:
+        if url in events:
+            events[url]["gcal_synced"] = "True"
     return events
