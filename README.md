@@ -128,17 +128,28 @@ Calendar files are saved to the `calendars/` directory.
 
 ### Google Calendar (with Invites)
 
-Sync events directly to Google Calendar and send invites to sales reps.
+Sync events directly to Google Calendar and send invites to sales reps. Uses OAuth 2.0 for authentication.
 
-1. Create a Google Cloud service account (same as for Sheets)
-2. Enable the Google Calendar API in your Google Cloud project
-3. Share your calendar with the service account email (or use "primary" for your main calendar)
+**Setup:**
+
+1. Create a Google Cloud project at [console.cloud.google.com](https://console.cloud.google.com)
+2. Enable the **Google Calendar API**
+3. Create OAuth 2.0 credentials:
+   - Go to APIs & Services → Credentials
+   - Click "Create Credentials" → "OAuth client ID"
+   - Choose "Desktop app" as the application type
+   - Download the JSON file and save it as `google_credentials.json`
 4. Configure in `config.json`:
    ```json
    {
      "rep_emails": {
        "John Smith": "john@company.com",
        "Jane Doe": "jane@company.com"
+     },
+     "timezones": {
+       "New York": "America/New_York",
+       "San Francisco": "America/Los_Angeles",
+       "London": "Europe/London"
      },
      "google_calendar": {
        "enabled": true,
@@ -150,7 +161,27 @@ Sync events directly to Google Calendar and send invites to sales reps.
    }
    ```
 
+**First run:** A browser window will open for Google authentication. After approving, a `google_token.json` file is saved for future runs.
+
+**Timezone support:** Map city names to IANA timezone strings in the `timezones` config. Events will be created with the correct timezone based on their city.
+
 Each sales rep will receive an email invite for events assigned to them.
+
+### Calendar Helper Scripts
+
+**Export to ICS file** (for manual import):
+```bash
+python export_calendar.py
+```
+Generates `calendars/all_events.ics` which can be imported into any calendar app. Only exports events that haven't been exported before.
+
+**Reset and re-sync Google Calendar events:**
+```bash
+python reset_calendar.py           # Delete events and reset tracking
+python reset_calendar.py --resync  # Delete, reset, and immediately re-sync
+python reset_calendar.py --skip-delete  # Only reset CSV tracking
+```
+Use this to fix timezone issues or re-create all calendar events from scratch.
 
 ## How It Works
 
@@ -168,16 +199,19 @@ The scraper uses Browserless to render Meetup pages (which require JavaScript), 
 ```
 meetup-scraper/
 ├── scraper.py              # Main orchestrator
+├── export_calendar.py      # Export events to ICS file
+├── reset_calendar.py       # Reset and re-sync Google Calendar
 ├── config.json             # Your configuration (gitignored)
 ├── config.example.json     # Template configuration
 ├── events.csv              # Event database (gitignored)
+├── google_token.json       # OAuth token (gitignored, auto-generated)
 ├── requirements.txt        # Python dependencies
 ├── calendars/              # Generated .ics files (gitignored)
 └── modules/
     ├── __init__.py
     ├── csv_manager.py      # State persistence, status tracking
     ├── google_sheets.py    # Google Sheets integration
-    ├── google_calendar.py  # Google Calendar with invites
+    ├── google_calendar.py  # Google Calendar with OAuth
     ├── slack_notifier.py   # Slack notifications
     └── calendar_generator.py # ICS file generation
 ```
